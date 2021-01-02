@@ -1,2 +1,2 @@
-# zigwin
+# Zigwin
 A Zig windowing library
