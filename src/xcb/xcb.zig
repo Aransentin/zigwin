@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const zigwin = @import("../zigwin.zig");
-const opengl = @import("opengl.zig");
+const egl = @import("egl.zig");
 usingnamespace @import("bits.zig");
 const Allocator = std.mem.Allocator;
 
@@ -21,18 +21,26 @@ pub fn Platform(comptime _settings: anytype) type {
         alpha_compat_visual: VISUALID = 0,
 
         window: ?*Window = null,
+        egl_display: if (settings.render_opengl) ?egl.EGLDisplay else void = undefined,
 
         pub fn init() !Self {
             var self = Self{};
 
             if (refcount == 0) {
                 try xcbInit(settings.x11_use_xlib);
+                errdefer xcbDeinit(settings.x11_use_xlib);
+                if (settings.render_opengl) {
+                    try egl.init();
+                }
             }
             refcount += 1;
 
             errdefer {
                 if (refcount == 1) {
                     xcbDeinit(settings.x11_use_xlib);
+                    if (settings.render_opengl) {
+                        egl.deinit();
+                    }
                 }
                 refcount -= 1;
             }
@@ -84,7 +92,11 @@ pub fn Platform(comptime _settings: anytype) type {
                 xcbDepthNext(&depth_iter);
             }
 
-            // Extensions, atoms
+            // todo: atoms
+
+            if (settings.render_opengl) {
+                self.egl_display = try egl.initDisplay(Self, &self);
+            }
 
             if (settings.x11_use_xlib) {
                 std.log.scoped(.zigwin).info("Platform Initialized: Xlib-XCB", .{});
@@ -95,6 +107,10 @@ pub fn Platform(comptime _settings: anytype) type {
         }
 
         pub fn deinit(self: *Self) void {
+            if (settings.render_opengl) {
+                egl.deinitDisplay(self.egl_display.?);
+            }
+
             if (settings.x11_use_xlib) {
                 xCloseDisplay(self.display);
             } else {
@@ -102,7 +118,9 @@ pub fn Platform(comptime _settings: anytype) type {
             }
 
             if (refcount == 1) {
-                opengl.libraryCleanup();
+                if (settings.render_opengl) {
+                    egl.deinit();
+                }
                 xcbDeinit(settings.x11_use_xlib);
             }
             refcount -= 1;
@@ -177,8 +195,8 @@ pub fn Platform(comptime _settings: anytype) type {
             window.init(options);
         }
 
-        fn _createOpenGLContext(self: *Self, options: zigwin.OpenGLContextOptions, share: ?*opengl.Context(Self)) !opengl.Context(Self) {
-            var context = try opengl.Context(Self).init(self, options, share);
+        fn _createOpenGLContext(self: *Self, options: zigwin.OpenGLContextOptions, share: ?*egl.Context(Self)) !egl.Context(Self) {
+            var context = try egl.Context(Self).init(self, options, share);
             return context;
         }
         pub const createOpenGLContext = if (settings.render_opengl) _createOpenGLContext else void;

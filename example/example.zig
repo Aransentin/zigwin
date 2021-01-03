@@ -6,8 +6,8 @@ const Platform = zigwin.Platform(.{
     .wayland = false,
     .x11 = true,
     .render_opengl = true,
-    .render_vulkan = true,
-    .render_software = false,
+    .render_vulkan = false,
+    .render_software = true,
     .x11_use_xlib = true,
 });
 
@@ -19,11 +19,11 @@ pub fn main() !void {
     var platform = try Platform.init();
     defer platform.deinit();
 
-    var context = try platform.createOpenGLContext(.{ .major = 3, .minor = 3, .core = false, .forward_compatible = false, .srgb = true }, null);
+    var context = try platform.createOpenGLContext(.{ .major = 3, .minor = 3, .core = false, .forward_compatible = false, .debug = true }, null);
     defer context.deinit();
 
     var window: Platform.Window = undefined;
-    try platform.createWindow(&window, .{ .title = "ZWL OpenGL Example", .track_damage = true, .opengl_context_compatible = &context });
+    try platform.createWindow(&window, .{ .title = "ZWL Example", .track_damage = false, .opengl_context_compatible = &context });
     defer window.deinit();
 
     try context.makeCurrent(&window);
@@ -38,6 +38,7 @@ pub fn main() !void {
             switch (event) {
                 .window_resized => |win| {
                     c.glViewport(0, 0, window.width, window.height);
+                    std.log.debug("{}x{}", .{ window.width, window.height });
                 },
                 .window_destroyed => return,
                 .platform_terminated => return,

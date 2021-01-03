@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 usingnamespace @import("bits.zig");
 const zigwin = @import("../zigwin.zig");
-const opengl = @import("opengl.zig");
+const egl = @import("egl.zig");
 
 pub fn Window(comptime Platform: anytype) type {
     return struct {
@@ -16,7 +16,7 @@ pub fn Window(comptime Platform: anytype) type {
         width: u16 = undefined,
         height: u16 = undefined,
 
-        glx_window: if (Platform.settings.render_opengl) opengl.GLXWindow else void = undefined,
+        egl_surface: if (Platform.settings.render_opengl) ?egl.EGLSurface else void = undefined,
 
         pub fn init(self: *Self, options: zigwin.WindowOptions) void {
             self.handle = xcbGenerateId(self.platform.connection);
@@ -24,11 +24,11 @@ pub fn Window(comptime Platform: anytype) type {
             self.height = options.height;
 
             if (Platform.settings.render_opengl) {
-                self.glx_window = 0;
+                self.egl_surface = null;
             }
 
             // Ugly cast to get rid of the ?*c_void that the option needs
-            const gl_context = if (Platform.settings.render_opengl and options.opengl_context_compatible != null) @ptrCast(*opengl.Context(Platform), @alignCast(8, options.opengl_context_compatible)) else null;
+            const gl_context = if (Platform.settings.render_opengl and options.opengl_context_compatible != null) @ptrCast(*egl.Context(Platform), @alignCast(8, options.opengl_context_compatible)) else null;
 
             // Decide what visual and depth to use
             var visual: VISUALID = 0;
@@ -87,9 +87,9 @@ pub fn Window(comptime Platform: anytype) type {
             wptr.* = self.next;
 
             if (Platform.settings.render_opengl) {
-                if (self.glx_window != 0) {
-                    std.log.debug("glXDestroyWindow: {x}", .{self.glx_window});
-                    opengl.glXDestroyWindow(self.platform.display, self.glx_window);
+                if (self.egl_surface) |surface| {
+                    std.log.debug("destroying egl_surface", .{});
+                    // opengl.glXDestroyWindow(self.platform.display, self.glx_window);
                 }
             }
 

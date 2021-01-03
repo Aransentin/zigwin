@@ -30,7 +30,7 @@ pub const PlatformSettings = struct {
     x11: bool = true,
 
     /// Hardware rendering on X11 requires calling an X11 C library, either XCB or Xlib. Xlib is an old, slow wrapper layer
-    /// around XCB that's worse in all respects but necessary for OpenGL context creation and in a Vulkan edge case: there
+    /// around XCB that's worse in all respects but often necessary for OpenGL context creation and in a Vulkan edge case: there
     /// is one Xlib extension (VK_EXT_acquire_xlib_display) that does not have an XCB analogue.
     x11_use_xlib: bool = false,
 
@@ -113,24 +113,16 @@ pub const OpenGLContextOptions = struct {
 
     alpha_bits: u8 = 0,
     depth_bits: u8 = 24,
-    stencil_bits: u8 = 0,
     transparent: bool = false,
     samples: u8 = 0,
-    srgb: bool = true,
-
-    egl: bool = false,
-    linux_glvnd: bool = true,
+    // srgb: bool = true,
 };
 
 pub fn Platform(comptime settings: PlatformSettings) type {
     if (builtin.os.tag == .windows) return windows.Platform(settings);
     if (builtin.arch.isWasm()) return browser.Platform(settings);
     if (builtin.os.tag == .linux) {
-        if (settings.render_opengl == true and !settings.x11_use_xlib) {
-            if (!settings.x11_use_xlib) @compileError("Rendering with OpenGL requires Xlib");
-        }
         const x11plat = if (!settings.render_opengl and !settings.render_vulkan) x11 else xcb;
-
         if (!settings.x11 and settings.wayland) return wayland.Platform(settings);
         if (settings.x11 and !settings.wayland) return x11plat.Platform(settings);
         if (settings.x11 and settings.wayland) @compileError("Linux multi-platform not yet implemented");
