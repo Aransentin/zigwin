@@ -23,7 +23,7 @@ var eglGetConfigAttrib: fn (display: EGLDisplay, config: EGLConfig, attribute: i
 var eglCreateContext: fn (display: EGLDisplay, config: EGLConfig, share_context: ?EGLContext, attrib_list: [*]const i32) callconv(.C) ?EGLContext = undefined;
 var eglDestroyContext: fn (display: EGLDisplay, context: EGLContext) callconv(.C) c_uint = undefined;
 var eglCreatePlatformWindowSurface: fn (display: EGLDisplay, config: EGLConfig, native_window: *c_void, attrib_list: ?[*]const usize) callconv(.C) ?EGLSurface = undefined;
-var eglDestroySurface: fn (display: EGLDisplay, surface: EGLSurface) callconv(.C) c_uint = undefined;
+pub var eglDestroySurface: fn (display: EGLDisplay, surface: EGLSurface) callconv(.C) c_uint = undefined;
 var eglMakeCurrent: fn (display: EGLDisplay, draw: ?EGLSurface, read: ?EGLSurface, context: ?EGLContext) callconv(.C) c_uint = undefined;
 var eglSwapBuffers: fn (display: EGLDisplay, surface: EGLSurface) callconv(.C) c_uint = undefined;
 
@@ -215,8 +215,31 @@ pub fn Context(comptime Platform: anytype) type {
             if (ctx == null) return error.EGLCreateContextFailed;
             self.context = ctx.?;
 
-            // get visual depth of whatever visual we got
-            self.visual_depth = 24;
+            // Find the visual depth
+            self.visual_depth = blk: {
+                const setup = xcbGetSetup(platform.connection);
+                var screen_iter = xcbSetupRootsIterator(setup);
+                var i: usize = 0;
+                while (true) : (i += 1) {
+                    if (i == platform.screen_id) break;
+                    xcbScreenNext(&screen_iter);
+                }
+                const screen = screen_iter.data;
+                var depth_iter = xcbScreenAllowedDepthsIterator(screen);
+                while (depth_iter.rem != 0) {
+                    const depth = depth_iter.data;
+                    var visuals_iter = xcbDepthVisualsIterator(depth_iter.data);
+                    while (visuals_iter.rem != 0) {
+                        const visual = visuals_iter.data;
+                        if (visual.visual_id == self.visual) {
+                            break :blk depth.depth;
+                        }
+                        xcbVisualtypeNext(&visuals_iter);
+                    }
+                    xcbDepthNext(&depth_iter);
+                }
+                unreachable;
+            };
 
             return self;
         }

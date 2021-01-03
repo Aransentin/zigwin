@@ -38,7 +38,7 @@ pub fn main() !void {
             switch (event) {
                 .window_resized => |win| {
                     c.glViewport(0, 0, window.width, window.height);
-                    std.log.debug("{}x{}", .{ window.width, window.height });
+                    std.log.debug("Resize: {}x{}", .{ window.width, window.height });
                 },
                 .window_destroyed => return,
                 .platform_terminated => return,

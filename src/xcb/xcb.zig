@@ -140,9 +140,6 @@ pub fn Platform(comptime _settings: anytype) type {
             while (true) {
                 const event = (try xcbPollForEvent(self.connection)) orelse return null;
                 defer std.c.free(event);
-
-                std.log.debug("{}", .{event});
-
                 if (try self.handleXcbEvent(event)) |ev| return ev;
             }
         }
@@ -154,6 +151,7 @@ pub fn Platform(comptime _settings: anytype) type {
                     var window = self.window;
                     while (window != null and window.?.handle != configure_notify_event.window) window = window.?.next;
                     if (window) |win| {
+                        if (configure_notify_event.width == win.width and configure_notify_event.height == win.height) return null;
                         win.width = configure_notify_event.width;
                         win.height = configure_notify_event.height;
                         return Event{ .window_resized = win };

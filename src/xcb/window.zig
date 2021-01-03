@@ -88,8 +88,7 @@ pub fn Window(comptime Platform: anytype) type {
 
             if (Platform.settings.render_opengl) {
                 if (self.egl_surface) |surface| {
-                    std.log.debug("destroying egl_surface", .{});
-                    // opengl.glXDestroyWindow(self.platform.display, self.glx_window);
+                    _ = egl.eglDestroySurface(self.platform.egl_display.?, surface);
                 }
             }
 
