@@ -20,6 +20,8 @@ pub fn Platform(comptime _settings: anytype) type {
         root_color_bits: u8 = undefined,
         alpha_compat_visual: VISUALID = 0,
 
+        atom_motif_wm_hints: ATOM = undefined,
+
         window: ?*Window = null,
         egl_display: if (settings.render_opengl) ?egl.EGLDisplay else void = undefined,
 
@@ -92,11 +94,15 @@ pub fn Platform(comptime _settings: anytype) type {
                 xcbDepthNext(&depth_iter);
             }
 
-            // todo: atoms
+            const _MOTIF_WM_HINTS_cookie = xcbInternAtomUnchecked(self.connection, false, "_MOTIF_WM_HINTS");
 
             if (settings.render_opengl) {
                 self.egl_display = try egl.initDisplay(Self, &self);
             }
+
+            const _MOTIF_WM_HINTS_cookie_reply = try xcbInternAtomReply(self.connection, _MOTIF_WM_HINTS_cookie, null);
+            self.atom_motif_wm_hints = _MOTIF_WM_HINTS_cookie_reply.atom;
+            std.c.free(_MOTIF_WM_HINTS_cookie_reply);
 
             if (settings.x11_use_xlib) {
                 std.log.scoped(.zigwin).info("Platform Initialized: Xlib-XCB", .{});

@@ -55,6 +55,9 @@ pub fn xcbInit(with_xlib: bool) !void {
     xcb_visualtype_next = try loadsym(@TypeOf(xcb_visualtype_next), libxcb, "xcb_visualtype_next");
     xcb_screen_next = try loadsym(@TypeOf(xcb_screen_next), libxcb, "xcb_screen_next");
     xcb_generate_id = try loadsym(@TypeOf(xcb_generate_id), libxcb, "xcb_generate_id");
+    xcb_intern_atom = try loadsym(@TypeOf(xcb_intern_atom), libxcb, "xcb_intern_atom");
+    xcb_intern_atom_unchecked = try loadsym(@TypeOf(xcb_intern_atom_unchecked), libxcb, "xcb_intern_atom_unchecked");
+    xcb_intern_atom_reply = try loadsym(@TypeOf(xcb_intern_atom_reply), libxcb, "xcb_intern_atom_reply");
     xcb_create_window = try loadsym(@TypeOf(xcb_create_window), libxcb, "xcb_create_window");
     xcb_destroy_window = try loadsym(@TypeOf(xcb_destroy_window), libxcb, "xcb_destroy_window");
     xcb_map_window = try loadsym(@TypeOf(xcb_map_window), libxcb, "xcb_map_window");
@@ -63,6 +66,7 @@ pub fn xcbInit(with_xlib: bool) !void {
     xcb_create_colormap = try loadsym(@TypeOf(xcb_create_colormap), libxcb, "xcb_create_colormap");
     xcb_free_colormap = try loadsym(@TypeOf(xcb_free_colormap), libxcb, "xcb_free_colormap");
     xcb_change_property = try loadsym(@TypeOf(xcb_change_property), libxcb, "xcb_change_property");
+    xcb_delete_property = try loadsym(@TypeOf(xcb_delete_property), libxcb, "xcb_delete_property");
     xcb_poll_for_event = try loadsym(@TypeOf(xcb_poll_for_event), libxcb, "xcb_poll_for_event");
     xcb_wait_for_event = try loadsym(@TypeOf(xcb_wait_for_event), libxcb, "xcb_wait_for_event");
 }
@@ -94,8 +98,10 @@ pub const KEYCODE = u8;
 pub const BUTTON = u8;
 pub const VoidCookie = u32;
 
-pub const XCB_ATOM_WM_NAME: ATOM = 39;
 pub const XCB_ATOM_STRING: ATOM = 31;
+pub const XCB_ATOM_WM_NAME: ATOM = 39;
+pub const WM_NORMAL_HINTS: ATOM = 40;
+pub const WM_SIZE_HINTS: ATOM = 41;
 
 var XOpenDisplay: fn (?[*:0]u8) callconv(.C) ?*Display = undefined;
 pub fn xOpenDisplay(display_name: ?[*:0]u8) !*Display {
@@ -368,6 +374,53 @@ pub fn xcbFreeColormap(connection: *Connection, cmap: COLORMAP) VoidCookie {
     return xcb_free_colormap(connection, cmap);
 }
 
+pub const InternAtomCookie = extern struct {
+    sequence: u32,
+};
+
+var xcb_intern_atom: fn (*Connection, u8, u16, [*]const u8) callconv(.C) InternAtomCookie = undefined;
+pub fn xcbInternAtom(connection: *Connection, only_if_exists: bool, name: []const u8) InternAtomCookie {
+    return xcb_intern_atom(connection, if (only_if_exists) 1 else 0, @intCast(u16, name.len), name.ptr);
+}
+
+var xcb_intern_atom_unchecked: fn (*Connection, u8, u16, [*]const u8) callconv(.C) InternAtomCookie = undefined;
+pub fn xcbInternAtomUnchecked(connection: *Connection, only_if_exists: bool, name: []const u8) InternAtomCookie {
+    return xcb_intern_atom_unchecked(connection, if (only_if_exists) 1 else 0, @intCast(u16, name.len), name.ptr);
+}
+
+pub const InternAtomReply = extern struct {
+    response_type: u8,
+    pad0: u8,
+    sequence: u16,
+    length: u32,
+    atom: ATOM,
+};
+
+var xcb_intern_atom_reply: fn (*Connection, InternAtomCookie, ?*c_void) callconv(.C) ?*InternAtomReply = undefined;
+pub fn xcbInternAtomReply(connection: *Connection, cookie: InternAtomCookie, err: ?*c_void) !*InternAtomReply {
+    return xcb_intern_atom_reply(connection, cookie, err) orelse return error.SystemResources;
+}
+
+pub const SizeHints = extern struct {
+    flags: u32 = 0,
+    pad0: [4]u32 = [_]u32{0} ** 4,
+    min: [2]u32 = [2]u32{ 0, 0 },
+    max: [2]u32 = [2]u32{ 0, 0 },
+    inc: [2]u32 = [2]u32{ 0, 0 },
+    aspect_min: [2]u32 = [2]u32{ 0, 0 },
+    aspect_max: [2]u32 = [2]u32{ 0, 0 },
+    base: [2]u32 = [2]u32{ 0, 0 },
+    win_gravity: u32 = 0,
+};
+
+pub const MotifHints = extern struct {
+    flags: u32,
+    functions: u32,
+    decorations: u32,
+    input_mode: i32,
+    status: u32,
+};
+
 pub const XCB_PROP_MODE_REPLACE = 0;
 pub const XCB_PROP_MODE_PREPEND = 1;
 pub const XCB_PROP_MODE_APPEND = 2;
@@ -375,6 +428,11 @@ pub const XCB_PROP_MODE_APPEND = 2;
 var xcb_change_property: fn (*Connection, u8, WINDOW, ATOM, ATOM, u8, u32, *const c_void) callconv(.C) VoidCookie = undefined;
 pub fn xcbChangeProperty(connection: *Connection, mode: u8, window: WINDOW, property: ATOM, property_type: ATOM, format: u8, data_len: u32, data: *const c_void) VoidCookie {
     return xcb_change_property(connection, mode, window, property, property_type, format, data_len, data);
+}
+
+var xcb_delete_property: fn (*Connection, WINDOW, ATOM) callconv(.C) VoidCookie = undefined;
+pub fn xcbDeleteProperty(connection: *Connection, window: WINDOW, property: ATOM) VoidCookie {
+    return xcb_delete_property(connection, window, property);
 }
 
 pub const GenericEvent = extern struct {

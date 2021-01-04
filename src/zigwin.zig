@@ -115,7 +115,6 @@ pub const OpenGLContextOptions = struct {
     depth_bits: u8 = 24,
     transparent: bool = false,
     samples: u8 = 0,
-    // srgb: bool = true,
 };
 
 pub fn Platform(comptime settings: PlatformSettings) type {

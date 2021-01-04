@@ -26,6 +26,7 @@ var eglCreatePlatformWindowSurface: fn (display: EGLDisplay, config: EGLConfig, 
 pub var eglDestroySurface: fn (display: EGLDisplay, surface: EGLSurface) callconv(.C) c_uint = undefined;
 var eglMakeCurrent: fn (display: EGLDisplay, draw: ?EGLSurface, read: ?EGLSurface, context: ?EGLContext) callconv(.C) c_uint = undefined;
 var eglSwapBuffers: fn (display: EGLDisplay, surface: EGLSurface) callconv(.C) c_uint = undefined;
+var eglSwapInterval: fn (display: EGLDisplay, interval: i32) callconv(.C) c_uint = undefined;
 
 fn loadsym(comptime T: type, lib: *c_void, symbol: [*:0]const u8) !T {
     const fpopt = std.c.dlsym(lib, symbol);
@@ -79,6 +80,7 @@ pub fn init() !void {
     eglDestroySurface = try loadsym(@TypeOf(eglDestroySurface), libegl, "eglDestroySurface");
     eglMakeCurrent = try loadsym(@TypeOf(eglMakeCurrent), libegl, "eglMakeCurrent");
     eglSwapBuffers = try loadsym(@TypeOf(eglSwapBuffers), libegl, "eglSwapBuffers");
+    eglSwapInterval = try loadsym(@TypeOf(eglSwapInterval), libegl, "eglSwapInterval");
 
     if (builtin.mode == .Debug) {
         if (std.mem.indexOf(u8, extensions, "EGL_KHR_debug") != null) {
@@ -88,7 +90,7 @@ pub fn init() !void {
                 .{ EGL_DEBUG_MSG_CRITICAL_KHR, 1 },
                 .{ EGL_DEBUG_MSG_ERROR_KHR, 1 },
                 .{ EGL_DEBUG_MSG_WARN_KHR, 1 },
-                .{ EGL_DEBUG_MSG_INFO_KHR, 1 },
+                .{ EGL_DEBUG_MSG_INFO_KHR, 0 },
                 .{ EGL_NONE, EGL_NONE },
             };
             if (eglDebugMessageControlKHR(eglDebugCallback, @ptrCast([*]const usize, &attribs)) != EGL_SUCCESS) {
@@ -185,7 +187,6 @@ pub fn Context(comptime Platform: anytype) type {
             };
 
             const egl_attribs = [_][2]i32{
-                .{ EGL_BUFFER_SIZE, 32 }, // TODO: real visual depth...
                 .{ EGL_BLUE_SIZE, 1 },
                 .{ EGL_BLUE_SIZE, 1 },
                 .{ EGL_GREEN_SIZE, 1 },
@@ -200,7 +201,7 @@ pub fn Context(comptime Platform: anytype) type {
 
             var num_configs: c_int = 0;
             if (eglChooseConfig(self.platform.egl_display.?, @ptrCast([*]const c_int, &egl_attribs), @ptrCast([*]EGLConfig, &self.config), 1, &num_configs) != 1) return error.EGLChooseConfigFailed;
-            if (num_configs == 0) return error.NoEGLConfigurations;
+            if (num_configs == 0) return error.NoEGLConfiguration;
             if (eglGetConfigAttrib(self.platform.egl_display.?, self.config, EGL_NATIVE_VISUAL_ID, @ptrCast(*i32, &self.visual)) != 1) return error.NoEGLVisualReturned;
 
             const ctx_attribs = [_][2]i32{
@@ -215,7 +216,7 @@ pub fn Context(comptime Platform: anytype) type {
             if (ctx == null) return error.EGLCreateContextFailed;
             self.context = ctx.?;
 
-            // Find the visual depth
+            // Find the actual visual depth
             self.visual_depth = blk: {
                 const setup = xcbGetSetup(platform.connection);
                 var screen_iter = xcbSetupRootsIterator(setup);
@@ -266,8 +267,8 @@ pub fn Context(comptime Platform: anytype) type {
             }
         }
 
-        pub fn setSwapInterval(self: *Self, window: Platform.Window, interval: u32) void {
-            // Do
+        pub fn setSwapInterval(self: *Self, interval: u32) void {
+            _ = eglSwapInterval(self.platform.egl_display.?, @intCast(i32, interval));
         }
 
         pub fn swapBuffers(self: *Self, window: Platform.Window) void {

@@ -5,20 +5,20 @@ pub fn build(b: *Builder) !void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addExecutable("example", "example/example.zig");
-    exe.addPackagePath("zigwin", "src/zigwin.zig");
-    exe.single_threaded = true;
-    exe.subsystem = .Windows;
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
-    exe.linkLibC();
-    exe.linkSystemLibrary("OpenGL");
-    if (mode == .ReleaseSmall) {
-        exe.strip = true;
-    }
-    exe.install();
+    // Software rendering
 
-    const exe_cmd = exe.run();
-    const exe_step = b.step("run", "Run the example application");
-    exe_step.dependOn(&exe_cmd.step);
+    // OpenGL
+    const ogl = b.addExecutable("opengl", "examples/opengl.zig");
+    ogl.addPackagePath("zigwin", "src/zigwin.zig");
+    ogl.single_threaded = true;
+    ogl.subsystem = .Windows;
+    ogl.setTarget(target);
+    ogl.setBuildMode(mode);
+    ogl.linkLibC();
+    ogl.linkSystemLibrary("OpenGL");
+    ogl.install();
+
+    const ogl_cmd = ogl.run();
+    const ogl_step = b.step("opengl", "Run the OpenGL example application");
+    ogl_step.dependOn(&ogl_cmd.step);
 }

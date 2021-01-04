@@ -104,15 +104,33 @@ pub fn Window(comptime Platform: anytype) type {
         pub fn setTitle(self: *Self, title: ?[]const u8) !void {
             if (title) |tt| {
                 _ = xcbChangeProperty(self.platform.connection, XCB_PROP_MODE_REPLACE, self.handle, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, @intCast(u32, tt.len), tt.ptr);
+            } else {
+                _ = xcbDeleteProperty(self.platform.connection, self.handle, XCB_ATOM_WM_NAME);
             }
         }
 
         pub fn setDecorations(self: *Self, state: bool) !void {
-            // todo
+            const atom = self.platform.atom_motif_wm_hints;
+            if (state == false) {
+                const hints = MotifHints{ .flags = 2, .functions = 0, .decorations = 0, .input_mode = 0, .status = 0 };
+                _ = xcbChangeProperty(self.platform.connection, XCB_PROP_MODE_REPLACE, self.handle, atom, atom, 32, @sizeOf(MotifHints) / 4, &hints);
+            } else {
+                _ = xcbDeleteProperty(self.platform.connection, self.handle, atom);
+            }
         }
 
         pub fn setResizeable(self: *Self, state: bool) !void {
-            // todo
+            if (state == false) {
+                const hints: SizeHints = .{
+                    .flags = (1 << 4) + (1 << 5) + (1 << 8),
+                    .min = [2]u32{ self.width, self.height },
+                    .max = [2]u32{ self.width, self.height },
+                    .base = [2]u32{ self.width, self.height },
+                };
+                _ = xcbChangeProperty(self.platform.connection, XCB_PROP_MODE_REPLACE, self.handle, WM_NORMAL_HINTS, WM_SIZE_HINTS, 32, @sizeOf(SizeHints) / 4, &hints);
+            } else {
+                _ = xcbDeleteProperty(self.platform.connection, self.handle, WM_NORMAL_HINTS);
+            }
         }
 
         pub fn setVisibility(self: *Self, state: bool) !void {
